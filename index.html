@@ -1,0 +1,281 @@
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#101b28">
+    <meta name="description" content="Werde Regierungschef eines europäischen Landes und gestalte seine Zukunft.">
+    <title>Europa entscheidet — Dein Land. Deine Zukunft.</title>
+    <link rel="stylesheet" href="styles.css">
+    <script type="module" src="game.js"></script>
+  </head>
+  <body>
+    <div class="page-shell">
+      <header class="topbar">
+        <a class="brand" href="#" aria-label="Europa entscheidet – Startseite">
+          <span class="brand-mark" aria-hidden="true">E</span>
+          <span class="brand-name">EUROPA<span>ENTSCHEIDET</span></span>
+        </a>
+        <div class="topbar-note"><span class="status-dot"></span> DEIN EUROPA-SZENARIO</div>
+        <a class="about-link" href="#spielprinzip">So funktioniert's <span aria-hidden="true">↗</span></a>
+      </header>
+
+      <main>
+        <section class="intro">
+          <div class="eyebrow"><span class="eyebrow-line"></span> EIN LAND. VIELE MÖGLICHKEITEN.</div>
+          <h1>Dein Land.<br><span>Deine Zukunft.</span></h1>
+          <p>Übernimm die Regierung eines europäischen Landes. Investiere, kümmere dich um die Menschen und entscheide, wohin die Reise geht.</p>
+        </section>
+
+        <section class="setup-layout" aria-label="Land für dein Spiel auswählen">
+          <div class="country-panel panel">
+            <div class="panel-heading">
+              <div>
+                <span class="step-label">SCHRITT 01</span>
+                <h2>Wähle dein Land</h2>
+              </div>
+              <span class="country-count" id="country-count">— LÄNDER</span>
+            </div>
+            <label class="search-box">
+              <span class="search-icon" aria-hidden="true">⌕</span>
+              <span class="sr-only">Land suchen</span>
+              <input id="country-search" type="search" placeholder="Land suchen …" autocomplete="off">
+              <kbd>⌘ K</kbd>
+            </label>
+            <div class="country-list" id="country-list" role="listbox" aria-label="Europäische Länder"></div>
+            <div class="country-panel-footer">
+              <span><span class="legend-dot"></span> Klicke ein Land auf der Karte oder in der Liste.</span>
+            </div>
+          </div>
+
+          <div class="map-column">
+            <div class="map-panel panel">
+              <div class="map-heading">
+                <div>
+                  <span class="step-label">EUROPA AUF EINEN BLICK</span>
+                  <h2>Dein Spielfeld</h2>
+                </div>
+                <span class="map-hint"><span class="legend-dot"></span> <span id="map-hint">Land auswählen</span></span>
+              </div>
+              <div class="map-wrap">
+                <svg id="europe-map" viewBox="0 0 920 610" role="img" aria-label="Interaktive Karte der europäischen Länder">
+                  <defs>
+                    <pattern id="map-grid" width="48" height="48" patternUnits="userSpaceOnUse">
+                      <path d="M 48 0 L 0 0 0 48" fill="none" stroke="#253442" stroke-width=".7"></path>
+                    </pattern>
+                    <radialGradient id="map-glow">
+                      <stop offset="0" stop-color="#21374a" stop-opacity=".65"></stop>
+                      <stop offset="1" stop-color="#101b28" stop-opacity="0"></stop>
+                    </radialGradient>
+                  </defs>
+                  <rect width="920" height="610" fill="url(#map-grid)"></rect>
+                  <ellipse cx="482" cy="292" rx="410" ry="320" fill="url(#map-glow)"></ellipse>
+                  <g id="map-countries"></g>
+                  <g id="microstate-markers"></g>
+                </svg>
+                <div class="map-compass" aria-hidden="true"><span>N</span><i>↑</i></div>
+                <div class="map-attribution">KARTENDATEN: NATURAL EARTH · SPIELWERTE FIKTIV</div>
+              </div>
+            </div>
+            <div class="selection-card panel" id="selection-card">
+              <div class="selection-icon" id="selection-flag" aria-hidden="true">✦</div>
+              <div class="selection-copy">
+                <span class="step-label">DEINE AUSWAHL</span>
+                <h3 id="selection-name">Ein Land wartet auf dich</h3>
+                <p id="selection-description">Wähle ein europäisches Land, um dein Szenario zu starten.</p>
+              </div>
+              <button class="start-button" id="start-game" type="button" disabled>
+                Neue Partie beginnen <span aria-hidden="true">→</span>
+              </button>
+              <button class="resume-button" id="resume-game" type="button" hidden>Spielstand fortsetzen</button>
+            </div>
+          </div>
+        </section>
+
+        <section class="country-dossier panel" id="country-dossier" aria-labelledby="dossier-title" aria-live="polite" hidden>
+          <div class="dossier-landmark">
+            <img class="dossier-landmark-image" id="dossier-landmark-image" alt="" hidden>
+            <div class="dossier-landmark-fallback" id="dossier-landmark-fallback" aria-hidden="true">
+              <span class="fallback-coordinate">EUROPA · <span id="dossier-fallback-capital">HAUPTSTADT</span></span>
+              <svg viewBox="0 0 640 380" role="presentation">
+                <path d="M0 311h640v69H0z" fill="#263e4d"/>
+                <path d="M0 316h640M0 338h640" stroke="#516675" stroke-width="2" opacity=".5"/>
+                <path d="m0 280 59-6 34-28 34 21 28-43 50 24 30-45 44 14 29-34 34 15 23-39 49 15 25-42 44 22 17-28 52 16 35-30 52 11v217H0Z" fill="#273c4c"/>
+                <path d="M44 302v-60l36-23 36 23v60m-92 0h111M157 302v-97h52v97m-62 0h74M243 302v-74l43-29 43 29v74m-101 0h115M349 302v-123h58v123m-70 0h81M454 302v-88l38-25 39 25v88m-91 0h104M550 302v-67l35-22 35 22v67" fill="#314b59" stroke="#8195a0" stroke-width="2"/>
+                <path d="M181 226h9v12h-9zm32 0h9v12h-9zm51 15h10v13h-10zm27 0h10v13h-10zm55-51h10v15h-10zm23 0h10v15h-10zm114 14h10v13h-10zm25 0h10v13h-10zm62 39h9v11h-9z" fill="#e9c98e" opacity=".82"/>
+                <path d="M0 303q59-14 129 0t130 0 130 0 129 0 122 0v12H0Z" fill="#87c7a6" opacity=".57"/>
+              </svg>
+              <span class="fallback-city" id="dossier-fallback-city">Ein Blick auf Europa</span>
+            </div>
+            <div class="dossier-image-shade"></div>
+            <div class="dossier-landmark-copy">
+              <span class="step-label">LANDESPORTRÄT · <span id="dossier-overline">EUROPA</span></span>
+              <h2 id="dossier-title">Ein Land, eine Geschichte.</h2>
+              <p id="dossier-capital">Hauptstadt –</p>
+            </div>
+            <a class="image-credit" id="landmark-credit" href="https://commons.wikimedia.org/" target="_blank" rel="noreferrer">Bildsuche in Wikimedia Commons …</a>
+          </div>
+          <div class="dossier-details">
+            <div class="dossier-heading">
+              <div>
+                <span class="step-label">FAKTEN &amp; LUFTSTREITKRÄFTE</span>
+                <h2>Ein echtes Länderprofil</h2>
+              </div>
+              <a class="data-source" id="country-data-source" href="https://data.worldbank.org/" target="_blank" rel="noreferrer">QUELLE: WORLD BANK</a>
+            </div>
+            <div class="country-facts" id="country-facts"></div>
+            <div class="aircraft-card" id="aircraft-card">
+              <div class="aircraft-visual" id="aircraft-visual">
+                <img id="aircraft-image" alt="" loading="lazy" hidden>
+                <div class="aircraft-silhouette" aria-hidden="true">
+                  <svg viewBox="0 0 380 160" role="presentation">
+                    <path d="m15 91 120-15 60-47 15-2-26 48 102 8 61-19 20 1-30 32 30 25-19 2-64-17-101-1 25 46-16 1-58-45-119-1z" fill="currentColor"/>
+                    <path d="m168 75 13-27 21-1 9 29zm-3 19 25 1 11 20-18-1z" fill="#122027" opacity=".75"/>
+                    <path d="M11 92 367 89" stroke="#fff" stroke-opacity=".16" stroke-width="1"/>
+                  </svg>
+                </div>
+                <span class="aircraft-image-label">EIGENE ILLUSTRATION · SCHEMATISCH</span>
+              </div>
+              <div class="aircraft-info">
+                <span class="step-label" id="aircraft-status">LUFTSTREITKRÄFTE</span>
+                <h3 id="aircraft-title">Kampfflugzeugbestand</h3>
+                <p id="aircraft-models">Öffentlich bekannte Flugzeugtypen werden hier angezeigt.</p>
+                <p class="aircraft-note" id="aircraft-note"></p>
+                <a class="aircraft-model-source" id="aircraft-data-source" href="https://www.flightglobal.com/defence/2025/11/2026-world-air-forces-directory/" target="_blank" rel="noreferrer">Musterübersicht: FlightGlobal · World Air Forces 2026</a>
+                <a class="aircraft-credit" id="aircraft-credit" href="https://commons.wikimedia.org/" target="_blank" rel="noreferrer" hidden>Bildnachweis auf Wikimedia Commons</a>
+              </div>
+            </div>
+            <p class="dossier-footnote">Wirtschafts- und Bevölkerungswerte: neueste verfügbare World-Bank-Angabe (2023–2025), nicht Spielgeld. Flugzeugmuster: öffentlich dokumentierte Bestände, mit Bestellstatus gekennzeichnet. Die Simulation ist vereinfacht; die Werte sind keine aktuellen Einsatzstärken.</p>
+          </div>
+        </section>
+
+        <section class="game-section" id="game-section" aria-live="polite" hidden>
+          <div class="game-topline">
+            <div>
+              <span class="step-label">DEINE REGIERUNG · LOKALER SPIELSTAND</span>
+              <h2 id="game-title">—</h2>
+            </div>
+            <div class="game-topline-actions">
+              <span class="round-pill"><span class="status-dot"></span><span id="round-label">JAHR 1 · RUNDE 1</span></span>
+              <span class="save-indicator" id="save-indicator">Spielstand wird lokal gespeichert</span>
+            </div>
+          </div>
+          <div class="stats-grid" id="stats-grid"></div>
+          <div class="turn-status panel">
+            <div>
+              <span class="step-label">DEIN KABINETT · DIESE RUNDE</span>
+              <p id="turn-message">Drei Ressorts, drei Entscheidungen. Nichts muss angeklickt werden, bevor du weiterspielst.</p>
+            </div>
+            <div class="action-dots" id="action-dots"></div>
+            <button class="next-turn-button" id="next-turn" type="button">Runde beenden <span aria-hidden="true">→</span></button>
+          </div>
+          <nav class="game-tabs" id="game-tabs" aria-label="Regierungsbereiche">
+            <button class="game-tab is-active" type="button" data-tab="cabinet" aria-selected="true"><span>01</span> Kabinett</button>
+            <button class="game-tab" type="button" data-tab="diplomacy" aria-selected="false"><span>02</span> Diplomatie <span class="tab-badge" id="offer-badge" hidden>!</span></button>
+            <button class="game-tab" type="button" data-tab="security" aria-selected="false"><span>03</span> Sicherheit <span class="tab-badge" id="conflict-badge" hidden>!</span></button>
+            <button class="game-tab" type="button" data-tab="parliament" aria-selected="false"><span>04</span> Parlament &amp; Lage</button>
+          </nav>
+          <section class="game-view is-active" id="view-cabinet" data-view="cabinet">
+            <div class="game-workspace">
+              <div class="game-main">
+                <div class="policy-panel panel">
+                  <div class="panel-heading">
+                    <div><span class="step-label">RESSORT 01 · WIRTSCHAFT &amp; SOZIALES</span><h2>Wohin investierst du?</h2></div>
+                    <span class="money-legend">Eine Regierungsentscheidung pro Runde</span>
+                  </div>
+                  <div class="policy-grid" id="policy-grid"></div>
+                </div>
+                <div class="panel">
+                  <div class="panel-heading legislation-heading">
+                    <div><span class="step-label">GESETZGEBUNG · DEMOKRATISCHES PARLAMENT</span><h2>Ein Gesetz beschließen oder aufheben</h2></div>
+                    <span class="money-legend">Braucht eine Mehrheit</span>
+                  </div>
+                  <div class="law-grid" id="law-grid"></div>
+                </div>
+              </div>
+              <aside class="game-aside">
+                <div class="event-panel panel"><span class="step-label">LAGEBERICHT</span><div class="event-icon" id="event-icon" aria-hidden="true">✳</div><h3 id="event-title">Ein neuer Anfang</h3><p id="event-description"></p></div>
+                <div class="panel mandate-panel">
+                  <span class="step-label">DEMOKRATISCHES MANDAT</span>
+                  <h3 id="mandate-title">Rückhalt im Parlament</h3>
+                  <p id="mandate-description">Gesetze brauchen gesellschaftlichen Rückhalt und ein handlungsfähiges Parlament.</p>
+                  <div class="mandate-meter"><span id="mandate-meter"></span></div>
+                </div>
+                <button class="change-country" id="change-country" type="button">← Anderes Land wählen</button>
+              </aside>
+            </div>
+          </section>
+          <section class="game-view" id="view-diplomacy" data-view="diplomacy" hidden>
+            <div class="game-workspace">
+              <div class="game-main">
+                <div class="panel diplomacy-panel">
+                  <div class="panel-heading">
+                    <div><span class="step-label">RESSORT 02 · AUSSENPOLITIK</span><h2>Europäische Beziehungen</h2></div>
+                    <span class="money-legend">49 europäische Spielpartner</span>
+                  </div>
+                  <label class="nation-selector"><span>Verhandlungspartner</span><select id="nation-select" aria-label="Diplomatischen Partner auswählen"></select></label>
+                  <div class="diplomacy-profile" id="diplomacy-profile"></div>
+                  <div class="agreement-grid" id="agreement-grid"></div>
+                  <div class="diplomacy-actions" id="diplomacy-actions"></div>
+                  <div class="incoming-offer" id="incoming-offer" hidden></div>
+                  <p class="game-disclaimer">Die anderen Regierungen folgen festen Spielregeln. Verträge und Folgen gehören zur vereinfachten Spielwelt.</p>
+                </div>
+              </div>
+              <aside class="game-aside">
+                <div class="panel relationship-panel"><span class="step-label">AUSSENPOLITISCHER STATUS</span><h3 id="relationship-title">Dein Partner</h3><div id="relationship-list"></div></div>
+                <div class="panel"><span class="step-label">DIPLOMATIEPROTOKOLL</span><div class="activity-log compact-log" id="diplomacy-log"></div></div>
+              </aside>
+            </div>
+          </section>
+          <section class="game-view" id="view-security" data-view="security" hidden>
+            <div class="game-workspace">
+              <div class="game-main">
+                <div class="panel security-panel">
+                  <div class="panel-heading"><div><span class="step-label">RESSORT 03 · SICHERHEIT &amp; VERTEIDIGUNG</span><h2>Verteidigung &amp; Konfliktlage</h2></div><span class="money-legend">Strategische Simulation · keine Taktik</span></div>
+                  <div class="conflict-briefing" id="conflict-briefing"></div>
+                  <div class="security-action-grid" id="security-actions"></div>
+                  <p class="game-disclaimer">Konflikte werden abstrakt und automatisch als politische Lage berechnet. Keine Darstellung realer Einsatzdaten, Waffenwirkung oder taktischer Kampfhandlungen.</p>
+                </div>
+                <div class="panel armed-forces-panel">
+                  <span class="step-label">DEIN SICHERHEITSPROFIL</span>
+                  <h3>Öffentlich bekannte Flugzeugmuster</h3>
+                  <p id="armed-forces-summary"></p>
+                  <a class="aircraft-model-source" id="armed-forces-source" target="_blank" rel="noreferrer">Musterübersicht: FlightGlobal</a>
+                </div>
+              </div>
+              <aside class="game-aside">
+                <div class="panel"><span class="step-label">KONFLIKTPROTOKOLL</span><div class="activity-log compact-log" id="security-log"></div></div>
+                <div class="event-panel panel"><span class="step-label">DIPLOMATISCHE OPTION</span><div class="event-icon" aria-hidden="true">◇</div><h3>Deeskalation möglich</h3><p>Gespräche, Beistandspakte und Rückzug beeinflussen das politische Ergebnis.</p></div>
+              </aside>
+            </div>
+          </section>
+          <section class="game-view" id="view-parliament" data-view="parliament" hidden>
+            <div class="game-workspace">
+              <div class="game-main">
+                <div class="panel parliament-panel">
+                  <div class="panel-heading"><div><span class="step-label">PARLAMENT · RECHTSSTAATLICHKEIT</span><h2>Dein Regierungsmandat</h2></div></div>
+                  <div class="institution-grid" id="institution-grid"></div>
+                  <div class="election-card" id="election-card"></div>
+                  <p class="game-disclaimer">Gesetzesmehrheiten und Wahlen sind vereinfachte Spielregeln. Das Spiel trifft keine Aussage über reale Parteien, Wahlen oder Rechtslagen.</p>
+                </div>
+              </div>
+              <aside class="game-aside">
+                <div class="panel"><span class="step-label">MELDUNGEN &amp; EREIGNISSE</span><div class="activity-log compact-log" id="news-log"></div></div>
+                <div class="panel"><span class="step-label">REGIERUNGSPROTOKOLL</span><div id="activity-log" class="activity-log compact-log"></div></div>
+              </aside>
+            </div>
+          </section>
+        </section>
+
+        <section class="how-section" id="spielprinzip">
+          <div>
+            <span class="step-label">DAS SPIELPRINZIP</span>
+            <h2>Deine Entscheidungen<br>machen den Unterschied.</h2>
+          </div>
+          <p>Wirtschaft stärken, Wohlstand fördern oder die Verteidigung ausbauen — verwalte dein Spielgeld klug, behalte die Zustimmung im Blick und gestalte Runde für Runde die Zukunft deines Landes. Ein entspanntes Strategiespiel ohne richtig oder falsch.</p>
+        </section>
+      </main>
+      <footer class="footer"><span>EUROPAENTSCHEIDET</span><span>Eigene Vektorgrafiken · lizenzierte Fotos mit Nachweis</span></footer>
+    </div>
+  </body>
+</html>
