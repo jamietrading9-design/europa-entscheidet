@@ -278,6 +278,7 @@ h1 span { color: var(--mint); }
 .game-tab.is-active > span:first-child { color: var(--mint); }
 .tab-badge { display: grid; width: 16px; height: 16px; place-items: center; border-radius: 50%; background: #a64e44; color: white; font-size: 9px; font-weight: 700; }
 .game-view { min-height: 330px; }
+.campaign-profile { margin: 6px 0 0; color: var(--muted); font-size: 10px; }
 .game-workspace { display: grid; grid-template-columns: minmax(0, 1fr) 260px; gap: 14px; }
 .game-main { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
 .game-aside { display: flex; flex-direction: column; gap: 11px; min-width: 0; }
@@ -306,6 +307,7 @@ h1 span { color: var(--mint); }
 .diplomacy-country-copy { display: grid; gap: 4px; min-width: 0; }
 .diplomacy-country-copy strong { font: 700 13px var(--font-display); }
 .diplomacy-country-copy > span { color: var(--muted); font-size: 9px; }
+.diplomacy-country-copy > .diplomacy-country-details { color: var(--mint); font-size: 8px; line-height: 1.5; }
 .diplomacy-country .relationship-meter { grid-column: 1 / -1; margin-top: 2px; }
 .agreement-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-top: 11px; }
 .agreement-card { display: flex; flex-direction: column; min-height: 116px; padding: 11px; border: 1px solid #334455; border-radius: 5px; background: #1c2a39; color: var(--text); cursor: pointer; text-align: left; }
@@ -330,6 +332,10 @@ h1 span { color: var(--mint); }
 .conflict-status.is-active { border-color: #a0584a; background: linear-gradient(120deg, #392928, #282933); }
 .conflict-status strong { font: 700 14px var(--font-display); }
 .conflict-status p { margin: 7px 0 0; color: var(--muted); font-size: 10px; line-height: 1.6; }
+.escalation-meter { display: grid; gap: 7px; margin-top: 13px; color: var(--muted); font-size: 9px; }
+.escalation-track { height: 5px; overflow: hidden; border-radius: 5px; background: #344452; }
+.escalation-track > span { display: block; height: 100%; border-radius: inherit; background: var(--gold); transition: width .25s; }
+.conflict-status.is-active .escalation-track > span { background: var(--red); }
 .security-action-grid { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
 .security-action-grid .action-button-warning { max-width: 100%; }
 .procurement-panel { padding: 17px; }
@@ -339,6 +345,7 @@ h1 span { color: var(--mint); }
 .inventory-card > span { overflow: hidden; color: var(--muted); font-size: 8px; text-overflow: ellipsis; white-space: nowrap; }
 .inventory-card > strong { color: var(--mint); font: 700 16px var(--font-display); }
 .inventory-card > small { color: var(--faint); font-size: 8px; }
+.procurement-maintenance { margin: 0 0 13px; color: var(--muted); font-size: 9px; line-height: 1.5; }
 .procurement-fields { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; }
 .procurement-field { display: grid; align-content: start; gap: 7px; min-width: 0; color: var(--text); font-size: 9px; font-weight: 600; }
 .procurement-field > span { display: grid; gap: 3px; }

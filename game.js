@@ -65,7 +65,7 @@ const elements = {
   startGame: document.querySelector("#start-game"),
   gameSection: document.querySelector("#game-section"),
   gameTitle: document.querySelector("#game-title"),
-  roundLabel: document.querySelector("#round-label"),
+  campaignProfile: document.querySelector("#campaign-profile"),
   statsGrid: document.querySelector("#stats-grid"),
   policyGrid: document.querySelector("#policy-grid"),
   nextTurn: document.querySelector("#next-turn"),
@@ -110,6 +110,7 @@ const elements = {
   securityActions: document.querySelector("#security-actions"),
   procurementForm: document.querySelector("#procurement-form"),
   procurementCost: document.querySelector("#procurement-cost"),
+  procurementMaintenance: document.querySelector("#procurement-maintenance"),
   procurementSubmit: document.querySelector("#procurement-submit"),
   inventorySummary: document.querySelector("#inventory-summary"),
   armedForcesSummary: document.querySelector("#armed-forces-summary"),
@@ -605,7 +606,7 @@ function renderLog(target, entries) {
       item.className = `activity-item log-${entry.type ?? "normal"}`;
       const text = document.createElement("span");
       const strong = document.createElement("strong");
-      strong.textContent = `Jahr ${Math.ceil(entry.round / 4)} · Runde ${entry.round}: `;
+      strong.textContent = `Zug ${entry.round}: `;
       text.append(strong, document.createTextNode(entry.text));
       item.append(text);
       return item;
@@ -663,8 +664,11 @@ function renderDiplomacy() {
     const name = document.createElement("strong");
     name.textContent = relation.name;
     const status = document.createElement("span");
-    status.textContent = `${relationStatus(relation)} · Zustimmung ${relation.score}% · Spannung ${relation.tension}%${relation.embassy ? " · Botschaft vor Ort" : ""}`;
-    description.append(name, status);
+    status.textContent = `${relationStatus(relation)} · Zustimmung ${relation.score}% · Spannung ${relation.tension}%`;
+    const profileDetails = document.createElement("span");
+    profileDetails.className = "diplomacy-country-details";
+    profileDetails.textContent = `${relation.specialty} · ${relation.style} · ${relation.alliances.length ? relation.alliances.join(" / ") : "Kein Bündnis"}${relation.embassy ? " · Botschaft eröffnet" : ""}`;
+    description.append(name, status, profileDetails);
     const meter = document.createElement("div");
     meter.className = "relationship-meter";
     const score = document.createElement("span");
@@ -751,6 +755,17 @@ function renderSecurity() {
         : "Bereitschaft stärken, Verträge schließen oder ein parlamentarisches Mandat beantragen.";
   }
   briefing.append(title, detail);
+  const risk = document.createElement("div");
+  risk.className = "escalation-meter";
+  const riskLabel = document.createElement("span");
+  riskLabel.textContent = `Eskalationsrisiko · ${game.escalationRisk}/100`;
+  const riskTrack = document.createElement("div");
+  riskTrack.className = "escalation-track";
+  const riskValue = document.createElement("span");
+  riskValue.style.width = `${game.escalationRisk}%`;
+  riskTrack.append(riskValue);
+  risk.append(riskLabel, riskTrack);
+  briefing.append(risk);
   elements.conflictBriefing.replaceChildren(briefing);
 
   elements.securityActions.append(
@@ -793,7 +808,10 @@ function renderSecurity() {
   const formData = new FormData(elements.procurementForm);
   const requested = Object.fromEntries(procurementItems.map((item) => [item.id, Number(formData.get(item.id)) || 0]));
   const procurementTotal = procurementItems.reduce((sum, item) => sum + requested[item.id] * item.cost, 0);
+  const currentMaintenance = procurementItems.reduce((sum, item) => sum + inventory[item.id] * item.upkeep, 0);
+  const addedMaintenance = procurementItems.reduce((sum, item) => sum + requested[item.id] * item.upkeep, 0);
   elements.procurementCost.textContent = `${procurementTotal.toLocaleString("de-DE", { maximumFractionDigits: 2 })} Mrd. €`;
+  elements.procurementMaintenance.textContent = `Unterhalt je Runde: ${currentMaintenance.toLocaleString("de-DE", { maximumFractionDigits: 3 })} Mrd. € aktuell${addedMaintenance ? ` · ${addedMaintenance.toLocaleString("de-DE", { maximumFractionDigits: 3 })} Mrd. € zusätzlich · danach ${(currentMaintenance + addedMaintenance).toLocaleString("de-DE", { maximumFractionDigits: 3 })} Mrd. €` : ""}.`;
   elements.procurementSubmit.disabled = game.actions.defense || Boolean(game.conflict) || procurementTotal <= 0 || procurementTotal > game.treasury;
   elements.procurementSubmit.textContent = game.conflict ? "Während eines Konflikts gesperrt" : game.actions.defense ? "Sicherheit bereits genutzt" : procurementTotal > game.treasury ? "Zu teuer" : "Beschaffung prüfen";
   const profileAircraft = aircraftByCountry[game.country.id];
@@ -875,7 +893,7 @@ function updateTab(tabId) {
 
 function renderGame() {
   elements.gameTitle.textContent = game.country.name;
-  elements.roundLabel.textContent = `JAHR ${Math.ceil(game.round / 4)} · RUNDE ${game.round}`;
+  elements.campaignProfile.textContent = `${game.specialty} · ${game.alliances.length ? game.alliances.join(" / ") : "Kein Bündnis"} · Eskalationsrisiko ${game.escalationRisk}/100`;
   elements.eventTitle.textContent = game.news.title;
   elements.eventDescription.textContent = game.news.text;
   elements.eventIcon.textContent = game.news.type === "war" ? "⚠" : game.news.type === "diplomacy" ? "◇" : game.news.type === "crisis" ? "!" : "✳";

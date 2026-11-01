@@ -16,15 +16,12 @@
           <span class="brand-mark" aria-hidden="true">E</span>
           <span class="brand-name">EUROPA<span>ENTSCHEIDET</span></span>
         </a>
-        <div class="topbar-note"><span class="status-dot"></span> DEIN EUROPA-SZENARIO</div>
-        <a class="about-link" href="#spielprinzip">So funktioniert's <span aria-hidden="true">↗</span></a>
       </header>
 
       <main>
         <section class="intro">
-          <div class="eyebrow"><span class="eyebrow-line"></span> EIN LAND. VIELE MÖGLICHKEITEN.</div>
-          <h1>Dein Land.<br><span>Deine Zukunft.</span></h1>
-          <p>Übernimm die Regierung eines europäischen Landes. Investiere, kümmere dich um die Menschen und entscheide, wohin die Reise geht.</p>
+          <h1>Regiere ein Land.<br><span>Gestalte Europa.</span></h1>
+          <p>Wähle ein europäisches Land. Verwalte den Haushalt, gestalte die Außenpolitik und entscheide, wie du auf Krisen reagierst.</p>
         </section>
 
         <section class="setup-layout" aria-label="Land für dein Spiel auswählen">
@@ -152,28 +149,28 @@
         <section class="game-section" id="game-section" aria-live="polite" hidden>
           <div class="game-topline">
             <div>
-              <span class="step-label">DEINE REGIERUNG · LOKALER SPIELSTAND</span>
+              <span class="step-label">REGIERUNGSZENTRALE</span>
               <h2 id="game-title">—</h2>
+              <p class="campaign-profile" id="campaign-profile"></p>
             </div>
             <div class="game-topline-actions">
-              <span class="round-pill"><span class="status-dot"></span><span id="round-label">JAHR 1 · RUNDE 1</span></span>
               <span class="save-indicator" id="save-indicator">Spielstand wird lokal gespeichert</span>
             </div>
           </div>
           <div class="stats-grid" id="stats-grid"></div>
           <div class="turn-status panel">
             <div>
-              <span class="step-label">DEIN KABINETT · DIESE RUNDE</span>
-              <p id="turn-message">Drei Ressorts, drei Entscheidungen. Nichts muss angeklickt werden, bevor du weiterspielst.</p>
+              <h2 class="turn-heading">Deine Entscheidungen</h2>
+              <p id="turn-message">Regierung, Diplomatie und Sicherheit haben jeweils eine Entscheidung pro Zug.</p>
             </div>
             <div class="action-dots" id="action-dots"></div>
-            <button class="next-turn-button" id="next-turn" type="button">Runde beenden <span aria-hidden="true">→</span></button>
+            <button class="next-turn-button" id="next-turn" type="button">Zug beenden <span aria-hidden="true">→</span></button>
           </div>
           <nav class="game-tabs" id="game-tabs" aria-label="Regierungsbereiche">
-            <button class="game-tab is-active" type="button" data-tab="cabinet" aria-selected="true"><span>01</span> Kabinett</button>
-            <button class="game-tab" type="button" data-tab="diplomacy" aria-selected="false"><span>02</span> Diplomatie <span class="tab-badge" id="offer-badge" hidden>!</span></button>
-            <button class="game-tab" type="button" data-tab="security" aria-selected="false"><span>03</span> Sicherheit <span class="tab-badge" id="conflict-badge" hidden>!</span></button>
-            <button class="game-tab" type="button" data-tab="parliament" aria-selected="false"><span>04</span> Parlament &amp; Lage</button>
+            <button class="game-tab is-active" type="button" data-tab="cabinet" aria-selected="true">Regierung</button>
+            <button class="game-tab" type="button" data-tab="diplomacy" aria-selected="false">Diplomatie <span class="tab-badge" id="offer-badge" hidden>!</span></button>
+            <button class="game-tab" type="button" data-tab="security" aria-selected="false">Sicherheit <span class="tab-badge" id="conflict-badge" hidden>!</span></button>
+            <button class="game-tab" type="button" data-tab="parliament" aria-selected="false">Lage &amp; Parlament</button>
           </nav>
           <section class="game-view is-active" id="view-cabinet" data-view="cabinet">
             <div class="game-workspace">
@@ -231,17 +228,17 @@
             <div class="game-workspace">
               <div class="game-main">
                 <div class="panel security-panel">
-                  <div class="panel-heading"><div><span class="step-label">RESSORT 03 · SICHERHEIT &amp; VERTEIDIGUNG</span><h2>Verteidigung &amp; Konfliktlage</h2></div><span class="money-legend">Strategische Simulation · keine Taktik</span></div>
+                  <div class="panel-heading"><div><span class="step-label">SICHERHEIT</span><h2>Verteidigung &amp; Konfliktlage</h2></div></div>
                   <div class="conflict-briefing" id="conflict-briefing"></div>
                   <div class="security-action-grid" id="security-actions"></div>
-                  <p class="game-disclaimer">Konflikte werden abstrakt und automatisch als politische Lage berechnet. Keine Darstellung realer Einsatzdaten, Waffenwirkung oder taktischer Kampfhandlungen.</p>
+                  <p class="game-disclaimer">Bündnisse und Konflikte sind vereinfachte Spielregeln. Atomare Abschreckung wird nur als abstraktes Eskalationsrisiko abgebildet; Atomwaffen können weder beschafft noch eingesetzt werden.</p>
                 </div>
                 <div class="panel procurement-panel">
                   <div class="panel-heading">
                     <div><span class="step-label">BESCHAFFUNG · SPIELWERTE</span><h2>Personal &amp; Ausrüstung</h2></div>
-                    <span class="money-legend">Mengen selbst festlegen</span>
                   </div>
                   <div class="inventory-summary" id="inventory-summary" aria-live="polite"></div>
+                  <p class="procurement-maintenance" id="procurement-maintenance" aria-live="polite"></p>
                   <form id="procurement-form">
                     <div class="procurement-fields">
                       <label class="procurement-field"><span>Personal einstellen <small>Personen · 50.000 €</small></span><input name="personnel" type="number" min="0" max="20000" step="100" value="0" inputmode="numeric"></label>
@@ -255,7 +252,7 @@
                       <button class="action-button" type="submit" id="procurement-submit">Beschaffung prüfen</button>
                     </div>
                   </form>
-                  <p class="game-disclaimer">Eine Beschaffung pro Runde. Höhere Bestände verbessern nur abstrakte Spielwerte und verursachen laufende Unterhaltskosten. Keine realen Einsatzdaten.</p>
+                  <p class="game-disclaimer">Eine Beschaffung pro Zug. Mehr Ausrüstung erhöht den Unterhalt und kann andere Staaten beunruhigen. Alle Werte sind fiktive Spielwerte; nukleare Waffen sind nicht beschaffbar.</p>
                 </div>
                 <div class="panel armed-forces-panel">
                   <span class="step-label">DEIN SICHERHEITSPROFIL</span>
@@ -288,13 +285,6 @@
           </section>
         </section>
 
-        <section class="how-section" id="spielprinzip">
-          <div>
-            <span class="step-label">DAS SPIELPRINZIP</span>
-            <h2>Deine Entscheidungen<br>machen den Unterschied.</h2>
-          </div>
-          <p>Wirtschaft stärken, Wohlstand fördern oder die Verteidigung ausbauen — verwalte dein Spielgeld klug, behalte die Zustimmung im Blick und gestalte Runde für Runde die Zukunft deines Landes. Ein entspanntes Strategiespiel ohne richtig oder falsch.</p>
-        </section>
       </main>
       <footer class="footer"><span>EUROPAENTSCHEIDET</span><span>Eigene Vektorgrafiken · lizenzierte Fotos mit Nachweis</span></footer>
     </div>

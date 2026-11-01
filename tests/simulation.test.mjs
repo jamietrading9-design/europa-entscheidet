@@ -103,11 +103,20 @@ test("quantity-based procurement checks budget and quantities before purchase", 
   const quantities = { personnel: 1000, tanks: 2, ships: 1, aircraft: 1, missiles: 5 };
   const total = 1000 * 0.00005 + 2 * 0.35 + 1.8 + 1.25 + 5 * 0.06;
   const before = game.treasury;
+  const openingInventory = { ...game.inventory };
   const result = procureEquipment(game, quantities);
   assert.equal(result.ok, true);
   assert.equal(result.cost, total);
   assert.equal(game.treasury, Number((before - total).toFixed(3)));
-  assert.deepEqual(game.inventory, { personnel: 16000, tanks: 14, ships: 3, aircraft: 9, missiles: 29 });
+  assert.deepEqual(game.inventory, {
+    personnel: openingInventory.personnel + quantities.personnel,
+    tanks: openingInventory.tanks + quantities.tanks,
+    ships: openingInventory.ships + quantities.ships,
+    aircraft: openingInventory.aircraft + quantities.aircraft,
+    missiles: openingInventory.missiles + quantities.missiles,
+  });
+  assert.ok(result.militarySignal > 0);
+  assert.ok(game.escalationRisk > 8);
   assert.equal(game.actions.defense, true);
   assert.equal(procureEquipment(game, quantities).ok, false);
 
@@ -122,6 +131,76 @@ test("quantity-based procurement checks budget and quantities before purchase", 
   unaffordable.treasury = 1;
   assert.equal(procureEquipment(unaffordable, { personnel: 0, tanks: 10, ships: 0, aircraft: 0, missiles: 0 }).ok, false);
   assert.equal(unaffordable.actions.defense, false);
+});
+
+test("country profiles create different starting strength and political traits", () => {
+  const nations = [
+    { id: "germany", name: "Deutschland", flag: "🇩🇪" },
+    { id: "france", name: "Frankreich", flag: "🇫🇷" },
+    { id: "ukraine", name: "Ukraine", flag: "🇺🇦" },
+  ];
+  const profilesByCountry = {
+    Deutschland: { gdp: { value: 4_000_000_000_000 }, population: { value: 80_000_000 } },
+    Frankreich: { gdp: { value: 3_000_000_000_000 }, population: { value: 65_000_000 } },
+    Ukraine: { gdp: { value: 150_000_000_000 }, population: { value: 35_000_000 } },
+  };
+  const fleets = {
+    germany: { aircraft: ["Typ A"] },
+    france: { aircraft: ["Typ B", "Typ C"] },
+    ukraine: { aircraft: [] },
+  };
+  const game = createCampaign(nations[0], profilesByCountry.Deutschland, nations, profilesByCountry, fleets);
+  const france = game.relations.find((relation) => relation.id === "france");
+  const ukraine = game.relations.find((relation) => relation.id === "ukraine");
+  const ukraineGame = createCampaign(nations[2], profilesByCountry.Ukraine, nations, profilesByCountry, fleets);
+
+  assert.deepEqual(game.alliances, ["NATO", "EU"]);
+  assert.deepEqual(france.alliances, ["NATO", "EU"]);
+  assert.deepEqual(ukraine.alliances, []);
+  assert.notEqual(game.inventory.tanks, ukraineGame.inventory.tanks);
+  assert.notEqual(france.defense, ukraine.defense);
+  assert.ok(["Wirtschaft", "Verteidigung", "Diplomatie", "Ausgewogen"].includes(game.specialty));
+  assert.ok(["Vorsichtig", "Pragmatisch", "Durchsetzungsstark"].includes(france.style));
+});
+
+test("NATO partner tensions rise after procurement and intra-alliance attacks are blocked", () => {
+  const nations = [
+    { id: "germany", name: "Deutschland", flag: "🇩🇪" },
+    { id: "france", name: "Frankreich", flag: "🇫🇷" },
+    { id: "ukraine", name: "Ukraine", flag: "🇺🇦" },
+    { id: "united-kingdom", name: "Vereinigtes Königreich", flag: "🇬🇧" },
+  ];
+  const game = createCampaign(nations[0], profile, nations, Object.fromEntries(nations.map((country) => [country.name, profile])), {});
+  const france = game.relations.find((relation) => relation.id === "france");
+  const unitedKingdom = game.relations.find((relation) => relation.id === "united-kingdom");
+  game.selectedNationId = france.id;
+  const balance = game.treasury;
+
+  const blockedAttack = useDefenseAction(game, "intervention");
+  assert.equal(blockedAttack.ok, false);
+  assert.equal(game.conflict, null);
+  assert.equal(game.treasury, balance);
+  assert.equal(game.actions.defense, false);
+
+  game.selectedNationId = france.id;
+  const initialFranceTension = france.tension;
+  const result = procureEquipment(game, { personnel: 0, tanks: 0, ships: 0, aircraft: 1, missiles: 0 });
+  assert.equal(result.ok, true);
+  assert.ok(france.tension > initialFranceTension);
+  assert.ok(unitedKingdom.tension > 0);
+  assert.ok(game.escalationRisk > 8);
+});
+
+test("assertive countries can escalate high tension into an abstract conflict", () => {
+  const game = createGame();
+  const relation = game.relations.find((item) => item.id === "beta");
+  relation.style = "Durchsetzungsstark";
+  relation.tension = 70;
+  game.offer = {};
+
+  endTurn(game, () => 0);
+  assert.equal(game.conflict?.opponentId, "beta");
+  assert.ok(game.escalationRisk > 8);
 });
 
 test("embassies improve relations and add recurring upkeep", () => {

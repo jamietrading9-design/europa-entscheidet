@@ -29,6 +29,21 @@ export const agreements = [
   { id: "defense", name: "Beistandspakt", cost: 8, description: "Politische Unterstützung im Krisenfall. Kein Automatismus für einen Krieg." },
 ];
 
+const natoMembers = new Set([
+  "albania", "belgium", "bulgaria", "croatia", "czech-republic", "denmark", "estonia",
+  "finland", "france", "germany", "greece", "hungary", "iceland", "italy", "latvia",
+  "lithuania", "luxembourg", "montenegro", "netherlands", "north-macedonia", "norway",
+  "poland", "portugal", "romania", "slovakia", "slovenia", "spain", "sweden", "turkey",
+  "united-kingdom",
+]);
+
+const europeanUnionMembers = new Set([
+  "austria", "belgium", "bulgaria", "croatia", "cyprus", "czech-republic", "denmark",
+  "estonia", "finland", "france", "germany", "greece", "hungary", "ireland", "italy",
+  "latvia", "lithuania", "luxembourg", "malta", "netherlands", "poland", "portugal",
+  "romania", "slovakia", "slovenia", "spain", "sweden",
+]);
+
 const clamp = (value, min = 0, max = 100) => Math.max(min, Math.min(max, value));
 
 function hashString(value) {
@@ -46,6 +61,25 @@ function economicIndex(profile) {
     ? profile.gdp.value / profile.population.value
     : 26000;
   return clamp(Math.round(34 + (Math.log10(perCapita) - 3.8) * 36), 15, 88);
+}
+
+function alliancesFor(countryId) {
+  return [
+    ...(natoMembers.has(countryId) ? ["NATO"] : []),
+    ...(europeanUnionMembers.has(countryId) ? ["EU"] : []),
+  ];
+}
+
+function countryStyle(countryId, economy, defense) {
+  if (economy - defense > 15) return "Wirtschaft";
+  if (defense - economy > 18) return "Verteidigung";
+  if (seededValue(countryId, "specialty") > .56) return "Diplomatie";
+  return "Ausgewogen";
+}
+
+function diplomacyStyle(countryId) {
+  const approach = seededValue(countryId, "diplomacy-style");
+  return approach < .34 ? "Vorsichtig" : approach < .7 ? "Pragmatisch" : "Durchsetzungsstark";
 }
 
 function defenseIndex(countryId, aircraftByCountry) {
@@ -69,6 +103,17 @@ function makeLog(state, text, type = "normal") {
 
 function emptyInventory() {
   return { personnel: 15000, tanks: 12, ships: 2, aircraft: 8, missiles: 24 };
+}
+
+function startingInventory(countryId, population, defense, aircraftByCountry) {
+  const aircraftCount = aircraftByCountry[countryId]?.aircraft?.length ?? 0;
+  return {
+    personnel: clamp(Math.round(population / 1000), 500, 20000),
+    tanks: clamp(Math.round(5 + defense * .25), 6, 35),
+    ships: clamp(Math.round(1 + defense / 30), 1, 6),
+    aircraft: clamp(4 + aircraftCount * 3, 4, 60),
+    missiles: clamp(Math.round(10 + defense * .55), 8, 70),
+  };
 }
 
 function procurementCost(quantities) {
@@ -104,14 +149,19 @@ export function createCampaign(country, profile, allCountries, profiles, aircraf
     const otherProfile = profiles[other.name];
     const otherGdp = otherProfile?.gdp?.value ?? 40_000_000_000;
     const otherArmy = defenseIndex(other.id, aircraftByCountry);
+    const otherEconomy = economicIndex(otherProfile);
     const distance = Math.abs(seededValue(country.id, other.id) - .5);
     return {
       id: other.id,
       name: other.name,
       flag: other.flag,
       gdp: otherGdp,
-      economy: economicIndex(otherProfile),
+      economy: otherEconomy,
       defense: otherArmy,
+      population: otherProfile?.population?.value ?? 5_000_000,
+      alliances: alliancesFor(other.id),
+      style: diplomacyStyle(other.id),
+      specialty: countryStyle(other.id, otherEconomy, otherArmy),
       score: Math.round(47 + (seededValue(country.id, `score:${other.id}`) - .5) * 28),
       trust: Math.round(48 + (seededValue(country.id, `trust:${other.id}`) - .5) * 20),
       tension: Math.round(distance * 30),
@@ -127,6 +177,9 @@ export function createCampaign(country, profile, allCountries, profiles, aircraf
     economy,
     prosperity: clamp(Math.round(29 + (Math.log10(gdpPerCapita) - 3.4) * 23), 25, 82),
     defense: army,
+    alliances: alliancesFor(country.id),
+    specialty: countryStyle(country.id, economy, army),
+    inventory: startingInventory(country.id, people, army, aircraftByCountry),
     approval: 61,
     legitimacy: 67,
     debt: Math.round(Math.max(0, treasury * (1.1 - seededValue(country.id, "debt")))),
@@ -134,7 +187,7 @@ export function createCampaign(country, profile, allCountries, profiles, aircraf
     gdp,
     actions: { government: false, diplomacy: false, defense: false },
     laws: [],
-    inventory: emptyInventory(),
+    escalationRisk: 8,
     peacePactUntil: 0,
     relations: neighbors,
     selectedNationId: [...neighbors].sort((a, b) => b.gdp - a.gdp)[0]?.id ?? "",
@@ -226,7 +279,7 @@ export function procureEquipment(game, quantities) {
   }
   const cost = procurementCost(purchase);
   if (cost > game.treasury) return { ok: false, message: `Für diese Beschaffung fehlen ${Number((cost - game.treasury).toFixed(2))} Mrd. €.` };
-  game.inventory ??= emptyInventory();
+  game.inventory ??= startingInventory(game.country.id, game.population, game.defense, {});
   game.treasury = Number((game.treasury - cost).toFixed(3));
   for (const item of procurementItems) game.inventory[item.id] += purchase[item.id];
   const readiness = Math.min(20, Math.ceil(
@@ -237,6 +290,25 @@ export function procureEquipment(game, quantities) {
       + purchase.missiles * 0.08,
   ));
   game.defense = clamp(game.defense + readiness);
+  const militarySignal = Math.min(24, Math.ceil(
+    purchase.personnel / 5000
+      + purchase.tanks / 8
+      + purchase.ships * 1.2
+      + purchase.aircraft
+      + purchase.missiles * .12,
+  ));
+  const target = getRelation(game, game.selectedNationId);
+  if (target && militarySignal > 0) {
+    target.tension = clamp(target.tension + militarySignal);
+    target.score = clamp(target.score - Math.ceil(militarySignal / 3));
+    target.trust = clamp(target.trust - Math.ceil(militarySignal / 4));
+    for (const relation of game.relations) {
+      if (relation.id !== target.id && target.alliances?.some((alliance) => relation.alliances?.includes(alliance))) {
+        relation.tension = clamp(relation.tension + Math.ceil(militarySignal * .3));
+      }
+    }
+    game.escalationRisk = clamp((game.escalationRisk ?? 8) + Math.ceil(militarySignal * .55));
+  }
   game.actions.defense = true;
   const summary = procurementItems
     .filter((item) => purchase[item.id] > 0)
@@ -245,10 +317,11 @@ export function procureEquipment(game, quantities) {
   makeLog(game, `Beschaffung: ${summary}. Kosten: ${cost.toLocaleString("de-DE", { maximumFractionDigits: 2 })} Mrd. € Spielgeld.`, "security");
   game.news = {
     title: "Beschaffung beschlossen",
-    text: `${summary} verstärken den vereinfachten Verteidigungswert um ${readiness} Punkte.`,
+    text: `${summary} verstärken den vereinfachten Verteidigungswert um ${readiness} Punkte.${militarySignal ? ` ${target?.name ?? "Andere Staaten"} reagieren auf die Aufrüstung; das Eskalationsrisiko steigt.` : ""}`,
     type: "security",
   };
-  return { ok: true, cost, readiness };
+  if (militarySignal) makeLog(game, `Die Beschaffung erhöht das Eskalationsrisiko um ${Math.ceil(militarySignal * .55)} Punkte.`, "crisis");
+  return { ok: true, cost, readiness, militarySignal };
 }
 
 export function proposeAgreement(game, nationId, agreementId, random = Math.random) {
@@ -401,6 +474,16 @@ function openConflict(game, nation, aggressor, reason) {
   relation.score = clamp(relation.score - 15);
   game.legitimacy = clamp(game.legitimacy - (aggressor === "player" ? 12 : 2));
   game.approval = clamp(game.approval - (aggressor === "player" ? 10 : 4));
+  game.escalationRisk = clamp((game.escalationRisk ?? 8) + 22);
+  const sharedAlliance = (game.alliances ?? []).find((alliance) => nation.alliances?.includes(alliance));
+  if (aggressor === "player" && sharedAlliance) {
+    for (const ally of game.relations.filter((other) =>
+      other.id !== nation.id && other.alliances?.includes(sharedAlliance))) {
+      ally.score = clamp(ally.score - 14);
+      ally.tension = clamp(ally.tension + 15);
+    }
+    makeLog(game, `${sharedAlliance}: Dein Angriff auf ein Mitglied beschädigt die Bündnissolidarität.`, "crisis");
+  }
   game.news = {
     title: "Bewaffneter Konflikt",
     text: `${reason} Für ${nation.name} kannst du eine Waffenruhe beantragen oder die Lage politisch neu bewerten.`,
@@ -429,6 +512,9 @@ export function useDefenseAction(game, actionId, random = Math.random) {
     if (!relation) return { ok: false, message: "Wähle zuerst ein Land." };
     if (game.treasury < 15) return { ok: false, message: "Für die Genehmigung fehlen 15 Mrd. €." };
     if (game.legitimacy < 45) return { ok: false, message: "Das Parlament verweigert ohne ausreichende Rechtsstaatlichkeit ein militärisches Mandat." };
+    if (relation.alliances?.includes("NATO") && (game.alliances ?? []).includes("NATO")) {
+      return { ok: false, message: "Ein Angriff auf ein eigenes Bündnismitglied wird durch das Verteidigungsbündnis verhindert." };
+    }
     game.actions.defense = true;
     game.treasury -= 15;
     openConflict(game, relation, "player", "Das Parlament genehmigt eine umstrittene Militäraktion.");
@@ -495,6 +581,12 @@ function advanceOtherCountries(game, random) {
       relation.score = clamp(relation.score + 1);
       relation.trust = clamp(relation.trust + 1);
     }
+    if (relation.tension >= 38 && random() < (relation.style === "Durchsetzungsstark" ? .3 : .14)) {
+      relation.defense = clamp(relation.defense + 1);
+      relation.tension = clamp(relation.tension + 2);
+      game.escalationRisk = clamp((game.escalationRisk ?? 8) + 1);
+      makeLog(game, `${relation.name} erhöht seine Bereitschaft. Die Spannungen in Europa nehmen zu.`, "crisis");
+    }
   }
   if (!game.offer && !game.conflict && random() < .32) {
     const candidates = game.relations.filter((relation) => relation.score > 42 && relation.tension < 38);
@@ -513,10 +605,14 @@ function advanceOtherCountries(game, random) {
   }
   if (game.conflict) return;
   const tense = game.relations
-    .filter((relation) => relation.tension >= 72 && !relation.treaties.includes("defense"))
+    .filter((relation) => {
+      const threshold = relation.style === "Durchsetzungsstark" ? 55 : relation.style === "Pragmatisch" ? 64 : 72;
+      return relation.tension >= threshold && !relation.treaties.includes("defense");
+    })
     .sort((left, right) => right.tension - left.tension);
   const aggressor = tense[0];
-  if (aggressor && game.round > (game.peacePactUntil ?? 0) && !game.laws.includes("peace") && random() < .42) {
+  const escalationChance = aggressor?.style === "Durchsetzungsstark" ? .34 : .2;
+  if (aggressor && game.round > (game.peacePactUntil ?? 0) && !game.laws.includes("peace") && random() < escalationChance) {
     openConflict(game, aggressor, "ai", "Eine diplomatische Krise eskaliert.");
   }
 }
@@ -538,9 +634,18 @@ function resolveConflict(game, random) {
     return;
   }
 
-  const allySupport = game.relations
+  const treatySupport = game.relations
     .filter((relation) => relation.treaties.includes("defense") && relation.tension < 60)
     .reduce((sum, relation) => sum + relation.defense * .12, 0);
+  const playerNatoSupport = conflict.aggressor === "ai" && (game.alliances ?? []).includes("NATO")
+    ? game.relations.filter((relation) => relation.alliances?.includes("NATO") && relation.tension < 75)
+      .reduce((sum, relation) => sum + relation.defense * .1, 0)
+    : 0;
+  const opponentNatoSupport = conflict.aggressor === "player" && opponent.alliances?.includes("NATO")
+    ? game.relations.filter((relation) =>
+      relation.id !== opponent.id && relation.alliances?.includes("NATO") && relation.tension < 75)
+      .reduce((sum, relation) => sum + relation.defense * .1, 0)
+    : 0;
   const inventory = game.inventory ?? emptyInventory();
   const supply = Math.min(24,
     inventory.personnel / 2500
@@ -549,8 +654,8 @@ function resolveConflict(game, random) {
       + inventory.aircraft * 0.5
       + inventory.missiles * 0.08,
   );
-  const defenseScore = game.defense + supply + (game.securityReadiness ?? 0) + Math.min(18, allySupport) + game.treasury * .05;
-  const opposition = opponent.defense + 10 + seededValue(opponent.id, `conflict:${game.round}`) * 12;
+  const defenseScore = game.defense + supply + (game.securityReadiness ?? 0) + Math.min(24, treatySupport + playerNatoSupport) + game.treasury * .05;
+  const opposition = opponent.defense + Math.min(28, opponentNatoSupport) + 10 + seededValue(opponent.id, `conflict:${game.round}`) * 12;
   const outcome = clamp(Math.round(50 + (defenseScore - opposition) * .8 + (random() - .5) * 18), 8, 92);
   const won = random() * 100 < outcome;
   conflict.exchanges += 1;
@@ -619,6 +724,9 @@ export function endTurn(game, random = Math.random) {
   resolveConflict(game, random);
   advanceOtherCountries(game, random);
   resolveCrisis(game, random);
+  const highestTension = Math.max(0, ...game.relations.map((relation) => relation.tension));
+  game.escalationRisk = clamp((game.escalationRisk ?? 8)
+    + (game.conflict ? 6 : highestTension >= 55 ? 2 : -3));
 
   if (game.round % 5 === 0) {
     if (game.approval >= 40 && game.legitimacy >= 35) {
@@ -672,12 +780,22 @@ export function loadCampaign(serialized, knownCountries) {
         || !saved.relations.some((relation) => relation.id === saved.conflict.opponentId)
         || !Number.isInteger(saved.conflict.exchanges) || saved.conflict.exchanges < 0))) return null;
   saved.country = country;
+  saved.alliances = alliancesFor(country.id);
+  saved.specialty = typeof saved.specialty === "string" ? saved.specialty : "Ausgewogen";
+  saved.escalationRisk = Number.isFinite(saved.escalationRisk) ? clamp(saved.escalationRisk) : 8;
   saved.inventory = { ...emptyInventory(), ...(saved.inventory ?? {}) };
   if (!procurementItems.every((item) => Number.isInteger(saved.inventory[item.id]) && saved.inventory[item.id] >= 0)) return null;
   saved.peacePactUntil = Number.isInteger(saved.peacePactUntil) ? Math.max(0, saved.peacePactUntil) : 0;
   saved.relations = saved.relations.filter((relation) => relation.id !== country.id);
   if (new Set(saved.relations.map((relation) => relation.id)).size !== saved.relations.length) return null;
-  saved.relations.forEach((relation) => { relation.embassy = Boolean(relation.embassy); });
+  saved.relations.forEach((relation) => {
+    relation.embassy = Boolean(relation.embassy);
+    relation.alliances = alliancesFor(relation.id);
+    relation.style = ["Vorsichtig", "Pragmatisch", "Durchsetzungsstark"].includes(relation.style)
+      ? relation.style
+      : diplomacyStyle(relation.id);
+    relation.specialty = typeof relation.specialty === "string" ? relation.specialty : "Ausgewogen";
+  });
   if (!saved.conflict) saved.conflict = null;
   saved.laws = [...new Set(saved.laws.filter((id) => laws.some((law) => law.id === id)))];
   saved.actions = {
