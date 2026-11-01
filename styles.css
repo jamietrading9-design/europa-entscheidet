@@ -332,6 +332,20 @@ h1 span { color: var(--mint); }
 .conflict-status p { margin: 7px 0 0; color: var(--muted); font-size: 10px; line-height: 1.6; }
 .security-action-grid { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
 .security-action-grid .action-button-warning { max-width: 100%; }
+.procurement-panel { padding: 17px; }
+.procurement-panel .panel-heading { margin-bottom: 13px; }
+.inventory-summary { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 7px; margin-bottom: 15px; }
+.inventory-card { display: grid; min-width: 0; gap: 3px; padding: 9px; border: 1px solid #334455; border-radius: 5px; background: #192837; }
+.inventory-card > span { overflow: hidden; color: var(--muted); font-size: 8px; text-overflow: ellipsis; white-space: nowrap; }
+.inventory-card > strong { color: var(--mint); font: 700 16px var(--font-display); }
+.inventory-card > small { color: var(--faint); font-size: 8px; }
+.procurement-fields { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; }
+.procurement-field { display: grid; align-content: start; gap: 7px; min-width: 0; color: var(--text); font-size: 9px; font-weight: 600; }
+.procurement-field > span { display: grid; gap: 3px; }
+.procurement-field small { color: var(--faint); font-size: 8px; font-weight: 400; }
+.procurement-field input { width: 100%; min-width: 0; min-height: 36px; padding: 0 8px; border: 1px solid #384b5a; border-radius: 5px; background: #111d29; color: var(--text); font-size: 11px; }
+.procurement-footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 12px; padding-top: 12px; border-top: 1px solid #2c3c4a; color: var(--muted); font-size: 9px; }
+.procurement-footer strong { color: var(--gold); }
 .compact-log { max-height: 280px; overflow-y: auto; }
 .compact-log .activity-item { font-size: 9px; }
 .log-war::before, .log-crisis::before { background: #e69b80; box-shadow: 0 0 8px #e69b8040; }
@@ -373,6 +387,7 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 2px solid 
   .stats-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
   .game-workspace { grid-template-columns: minmax(0, 1fr) 230px; }
   .law-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .procurement-fields { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
 
 @media (max-width: 650px) {
@@ -416,6 +431,9 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 2px solid 
   .law-grid { grid-template-columns: 1fr; }
   .law-card { min-height: 112px; }
   .institution-grid { grid-template-columns: 1fr; }
+  .inventory-summary { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .procurement-fields { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .procurement-footer { align-items: flex-start; flex-direction: column; }
   .institution-card > p { min-height: 0; }
   .policy-panel { padding: 15px; }
   .policy-panel .panel-heading { align-items: flex-start; }

@@ -236,6 +236,27 @@
                   <div class="security-action-grid" id="security-actions"></div>
                   <p class="game-disclaimer">Konflikte werden abstrakt und automatisch als politische Lage berechnet. Keine Darstellung realer Einsatzdaten, Waffenwirkung oder taktischer Kampfhandlungen.</p>
                 </div>
+                <div class="panel procurement-panel">
+                  <div class="panel-heading">
+                    <div><span class="step-label">BESCHAFFUNG · SPIELWERTE</span><h2>Personal &amp; Ausrüstung</h2></div>
+                    <span class="money-legend">Mengen selbst festlegen</span>
+                  </div>
+                  <div class="inventory-summary" id="inventory-summary" aria-live="polite"></div>
+                  <form id="procurement-form">
+                    <div class="procurement-fields">
+                      <label class="procurement-field"><span>Personal einstellen <small>Personen · 50.000 €</small></span><input name="personnel" type="number" min="0" max="20000" step="100" value="0" inputmode="numeric"></label>
+                      <label class="procurement-field"><span>Panzer <small>Stück · 0,35 Mrd. €</small></span><input name="tanks" type="number" min="0" max="100" step="1" value="0" inputmode="numeric"></label>
+                      <label class="procurement-field"><span>Schiffe <small>Stück · 1,8 Mrd. €</small></span><input name="ships" type="number" min="0" max="20" step="1" value="0" inputmode="numeric"></label>
+                      <label class="procurement-field"><span>Flugzeuge <small>Stück · 1,25 Mrd. €</small></span><input name="aircraft" type="number" min="0" max="30" step="1" value="0" inputmode="numeric"></label>
+                      <label class="procurement-field"><span>Abwehrsysteme <small>Stück · 0,06 Mrd. €</small></span><input name="missiles" type="number" min="0" max="200" step="1" value="0" inputmode="numeric"></label>
+                    </div>
+                    <div class="procurement-footer">
+                      <span>Gesamtkosten: <strong id="procurement-cost">0 Mrd. €</strong></span>
+                      <button class="action-button" type="submit" id="procurement-submit">Beschaffung prüfen</button>
+                    </div>
+                  </form>
+                  <p class="game-disclaimer">Eine Beschaffung pro Runde. Höhere Bestände verbessern nur abstrakte Spielwerte und verursachen laufende Unterhaltskosten. Keine realen Einsatzdaten.</p>
+                </div>
                 <div class="panel armed-forces-panel">
                   <span class="step-label">DEIN SICHERHEITSPROFIL</span>
                   <h3>Öffentlich bekannte Flugzeugmuster</h3>

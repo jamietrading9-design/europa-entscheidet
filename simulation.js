@@ -12,6 +12,15 @@ export const laws = [
   { id: "tax", name: "Faire Steuerreform", description: "Breitere Einnahmen für öffentliche Leistungen.", cost: 5, upkeep: 0, effects: { approval: -1, legitimacy: 1 }, income: 3 },
   { id: "defense", name: "Zivilschutzgesetz", description: "Mehr Geld für Bevölkerungsschutz und Bereitschaft.", cost: 12, upkeep: 3, effects: { defense: 2, approval: -1 } },
   { id: "integrity", name: "Transparenzgesetz", description: "Öffentliche Kontrolle und strengere Vergaberegeln.", cost: 8, upkeep: 1, effects: { legitimacy: 3, approval: 1 } },
+  { id: "peace", name: "Friedensgesetz", description: "Die Regierung darf keine Konflikte beginnen und muss zuerst verhandeln.", cost: 10, upkeep: 0, effects: { approval: 3, legitimacy: 3 } },
+];
+
+export const procurementItems = [
+  { id: "personnel", label: "Personal", unit: "Personen", step: 100, max: 20000, cost: 0.00005, upkeep: 0.000008, icon: "●" },
+  { id: "tanks", label: "Panzer", unit: "Panzer", step: 1, max: 100, cost: 0.35, upkeep: 0.015, icon: "▰" },
+  { id: "ships", label: "Schiffe", unit: "Schiffe", step: 1, max: 20, cost: 1.8, upkeep: 0.06, icon: "◈" },
+  { id: "aircraft", label: "Flugzeuge", unit: "Flugzeuge", step: 1, max: 30, cost: 1.25, upkeep: 0.045, icon: "✈" },
+  { id: "missiles", label: "Abstrakte Abwehrsysteme", unit: "Systeme", step: 1, max: 200, cost: 0.06, upkeep: 0.003, icon: "◇" },
 ];
 
 export const agreements = [
@@ -56,6 +65,14 @@ function relationLabel(relation) {
 function makeLog(state, text, type = "normal") {
   state.log.unshift({ round: state.round, text, type });
   state.log.length = Math.min(state.log.length, 24);
+}
+
+function emptyInventory() {
+  return { personnel: 15000, tanks: 12, ships: 2, aircraft: 8, missiles: 24 };
+}
+
+function procurementCost(quantities) {
+  return procurementItems.reduce((sum, item) => sum + (quantities[item.id] ?? 0) * item.cost, 0);
 }
 
 function grantTreaty(state, relation, type, makeLogEntry = true) {
@@ -117,6 +134,8 @@ export function createCampaign(country, profile, allCountries, profiles, aircraf
     gdp,
     actions: { government: false, diplomacy: false, defense: false },
     laws: [],
+    inventory: emptyInventory(),
+    peacePactUntil: 0,
     relations: neighbors,
     selectedNationId: [...neighbors].sort((a, b) => b.gdp - a.gdp)[0]?.id ?? "",
     offer: null,
@@ -191,6 +210,47 @@ export function makeInvestment(game, investmentId) {
   return { ok: true };
 }
 
+export function procureEquipment(game, quantities) {
+  if (game.actions.defense) return { ok: false, message: "Diese Runde hast du bereits über Sicherheit entschieden." };
+  if (game.conflict) return { ok: false, message: "Während eines Konflikts sind neue Beschaffungen ausgesetzt." };
+  const purchase = {};
+  for (const item of procurementItems) {
+    const quantity = quantities?.[item.id] ?? 0;
+    if (!Number.isInteger(quantity) || quantity < 0 || quantity > item.max) {
+      return { ok: false, message: `Die Menge für ${item.label} muss zwischen 0 und ${item.max} liegen.` };
+    }
+    purchase[item.id] = quantity;
+  }
+  if (!procurementItems.some((item) => purchase[item.id] > 0)) {
+    return { ok: false, message: "Wähle mindestens eine positive Menge aus." };
+  }
+  const cost = procurementCost(purchase);
+  if (cost > game.treasury) return { ok: false, message: `Für diese Beschaffung fehlen ${Number((cost - game.treasury).toFixed(2))} Mrd. €.` };
+  game.inventory ??= emptyInventory();
+  game.treasury = Number((game.treasury - cost).toFixed(3));
+  for (const item of procurementItems) game.inventory[item.id] += purchase[item.id];
+  const readiness = Math.min(20, Math.ceil(
+    purchase.personnel / 2500
+      + purchase.tanks * 0.3
+      + purchase.ships * 0.6
+      + purchase.aircraft * 0.5
+      + purchase.missiles * 0.08,
+  ));
+  game.defense = clamp(game.defense + readiness);
+  game.actions.defense = true;
+  const summary = procurementItems
+    .filter((item) => purchase[item.id] > 0)
+    .map((item) => `${purchase[item.id].toLocaleString("de-DE")} ${item.unit}`)
+    .join(", ");
+  makeLog(game, `Beschaffung: ${summary}. Kosten: ${cost.toLocaleString("de-DE", { maximumFractionDigits: 2 })} Mrd. € Spielgeld.`, "security");
+  game.news = {
+    title: "Beschaffung beschlossen",
+    text: `${summary} verstärken den vereinfachten Verteidigungswert um ${readiness} Punkte.`,
+    type: "security",
+  };
+  return { ok: true, cost, readiness };
+}
+
 export function proposeAgreement(game, nationId, agreementId, random = Math.random) {
   if (game.actions.diplomacy) return { ok: false, message: "Deine Regierung hat diese Runde bereits einen diplomatischen Schritt getan." };
   const relation = getRelation(game, nationId);
@@ -238,10 +298,56 @@ export function answerOffer(game, accept) {
 
 export function useDiplomacyAction(game, actionId, random = Math.random) {
   if (game.actions.diplomacy) return { ok: false, message: "Diese Runde ist kein weiterer diplomatischer Schritt möglich." };
+  if (actionId === "peaceConference") {
+    const cost = 8;
+    if (game.treasury < cost) return { ok: false, message: "Für eine europäische Friedenskonferenz fehlen 8 Mrd. €." };
+    const majorPowers = [...game.relations].sort((left, right) => right.gdp - left.gdp).slice(0, 5);
+    const supporters = majorPowers.filter((nation) =>
+      nation.score >= 52
+      || nation.embassy
+      || nation.treaties.includes("cooperation")
+      || nation.treaties.includes("defense"),
+    );
+    game.treasury -= cost;
+    game.actions.diplomacy = true;
+    const requiredSupport = Math.ceil(majorPowers.length * 0.6);
+    if (supporters.length < requiredSupport) {
+      game.approval = clamp(game.approval - 1);
+      makeLog(game, `Die Friedenskonferenz scheitert: Nur ${supporters.length} von ${majorPowers.length} großen europäischen Staaten unterstützen den Vorschlag.`, "diplomacy");
+      game.news = { title: "Keine Mehrheit für den Friedensplan", text: `${supporters.length} von ${majorPowers.length} großen europäischen Staaten unterstützen den Vorschlag. Stärke Beziehungen und eröffne Botschaften, bevor du es erneut versuchst.`, type: "crisis" };
+      return { ok: true, passed: false, supporters: supporters.length };
+    }
+    game.peacePactUntil = Math.max(game.peacePactUntil ?? 0, game.round + 3);
+    if (game.conflict) {
+      const opponent = getRelation(game, game.conflict.opponentId);
+      if (opponent) {
+        opponent.tension = clamp(opponent.tension - 35);
+        opponent.score = clamp(opponent.score + 7);
+      }
+      game.conflict = null;
+    }
+    game.legitimacy = clamp(game.legitimacy + 4);
+    game.approval = clamp(game.approval + 2);
+    makeLog(game, `Europäische Friedensvereinbarung: ${supporters.length} von ${majorPowers.length} großen Staaten stimmen für eine vier Runden geltende Konfliktsperre.`, "diplomacy");
+    game.news = { title: "Europäische Friedensvereinbarung", text: `${supporters.length} von ${majorPowers.length} großen Partnern stimmen zu. Konflikte sind für vier Runden ausgesetzt; ein laufender Konflikt wurde beendet.`, type: "diplomacy" };
+    return { ok: true, passed: true, supporters: supporters.length };
+  }
   const relation = actionId === "talks" && game.conflict
     ? getRelation(game, game.conflict.opponentId)
     : getRelation(game, game.selectedNationId);
   if (!relation) return { ok: false, message: "Wähle zuerst ein anderes Land aus." };
+  if (actionId === "embassy") {
+    if (relation.embassy) return { ok: false, message: `In ${relation.name} besteht bereits eine Botschaft.` };
+    if (game.treasury < 4) return { ok: false, message: "Für die Eröffnung einer Botschaft fehlen 4 Mrd. €." };
+    game.actions.diplomacy = true;
+    game.treasury -= 4;
+    relation.embassy = true;
+    relation.score = clamp(relation.score + 10);
+    relation.trust = clamp(relation.trust + 8);
+    makeLog(game, `Botschaft in ${relation.name} eröffnet.`, "diplomacy");
+    game.news = { title: "Neue Botschaft", text: `Die Botschaft in ${relation.name} stärkt den dauerhaften Austausch. Unterhalt: 0,5 Mrd. € pro Runde.`, type: "diplomacy" };
+    return { ok: true };
+  }
   if (actionId === "sanctions") {
     if (game.treasury < 3) return { ok: false, message: "Für Sanktionen fehlen 3 Mrd. €." };
     game.actions.diplomacy = true;
@@ -318,6 +424,8 @@ export function useDefenseAction(game, actionId, random = Math.random) {
   }
   if (actionId === "intervention") {
     if (game.conflict) return { ok: false, message: "Während eines laufenden Konflikts kann keine weitere Militäraktion genehmigt werden." };
+    if (game.round <= (game.peacePactUntil ?? 0)) return { ok: false, message: "Eine europäische Friedensvereinbarung untersagt derzeit neue Konflikte." };
+    if (game.laws.includes("peace")) return { ok: false, message: "Das Friedensgesetz untersagt deiner Regierung, einen Konflikt zu beginnen." };
     if (!relation) return { ok: false, message: "Wähle zuerst ein Land." };
     if (game.treasury < 15) return { ok: false, message: "Für die Genehmigung fehlen 15 Mrd. €." };
     if (game.legitimacy < 45) return { ok: false, message: "Das Parlament verweigert ohne ausreichende Rechtsstaatlichkeit ein militärisches Mandat." };
@@ -360,6 +468,21 @@ export function useDefenseAction(game, actionId, random = Math.random) {
     makeLog(game, "Du beendest den Einsatz und ordnest den Rückzug an.", "security");
     return { ok: true };
   }
+  if (actionId === "neutrality") {
+    if (!game.conflict) return { ok: false, message: "Es gibt keinen Konflikt, aus dem du dich heraushalten kannst." };
+    const opponent = getRelation(game, game.conflict.opponentId);
+    if (opponent) {
+      opponent.tension = clamp(opponent.tension - 14);
+      opponent.score = clamp(opponent.score + 2);
+    }
+    game.conflict = null;
+    game.defense = clamp(game.defense - 2);
+    game.legitimacy = clamp(game.legitimacy + 2);
+    game.actions.defense = true;
+    game.news = { title: "Nichteinmischung erklärt", text: "Deine Regierung beendet ihre Beteiligung und setzt auf Neutralität. Die Lage zwischen anderen Staaten bleibt bestehen.", type: "diplomacy" };
+    makeLog(game, "Du erklärst die Nichteinmischung und beendest die Beteiligung deines Landes.", "diplomacy");
+    return { ok: true };
+  }
   return { ok: false, message: "Diese Sicherheitsentscheidung ist nicht verfügbar." };
 }
 
@@ -368,6 +491,10 @@ function advanceOtherCountries(game, random) {
     relation.economy = clamp(relation.economy + Math.round((random() - .48) * 3), 10, 95);
     if (relation.treaties.includes("trade")) relation.economy = clamp(relation.economy + 1);
     if (relation.tension > 35 && random() < .22) relation.tension = clamp(relation.tension - 2);
+    if (relation.embassy) {
+      relation.score = clamp(relation.score + 1);
+      relation.trust = clamp(relation.trust + 1);
+    }
   }
   if (!game.offer && !game.conflict && random() < .32) {
     const candidates = game.relations.filter((relation) => relation.score > 42 && relation.tension < 38);
@@ -389,7 +516,9 @@ function advanceOtherCountries(game, random) {
     .filter((relation) => relation.tension >= 72 && !relation.treaties.includes("defense"))
     .sort((left, right) => right.tension - left.tension);
   const aggressor = tense[0];
-  if (aggressor && random() < .42) openConflict(game, aggressor, "ai", "Eine diplomatische Krise eskaliert.");
+  if (aggressor && game.round > (game.peacePactUntil ?? 0) && !game.laws.includes("peace") && random() < .42) {
+    openConflict(game, aggressor, "ai", "Eine diplomatische Krise eskaliert.");
+  }
 }
 
 function resolveConflict(game, random) {
@@ -412,7 +541,15 @@ function resolveConflict(game, random) {
   const allySupport = game.relations
     .filter((relation) => relation.treaties.includes("defense") && relation.tension < 60)
     .reduce((sum, relation) => sum + relation.defense * .12, 0);
-  const defenseScore = game.defense + (game.securityReadiness ?? 0) + Math.min(18, allySupport) + game.treasury * .05;
+  const inventory = game.inventory ?? emptyInventory();
+  const supply = Math.min(24,
+    inventory.personnel / 2500
+      + inventory.tanks * 0.3
+      + inventory.ships * 0.6
+      + inventory.aircraft * 0.5
+      + inventory.missiles * 0.08,
+  );
+  const defenseScore = game.defense + supply + (game.securityReadiness ?? 0) + Math.min(18, allySupport) + game.treasury * .05;
   const opposition = opponent.defense + 10 + seededValue(opponent.id, `conflict:${game.round}`) * 12;
   const outcome = clamp(Math.round(50 + (defenseScore - opposition) * .8 + (random() - .5) * 18), 8, 92);
   const won = random() * 100 < outcome;
@@ -457,7 +594,10 @@ export function endTurn(game, random = Math.random) {
   if (game.ended) return { ok: false, message: "Diese Amtszeit ist bereits beendet." };
   const activeLaws = laws.filter((law) => game.laws.includes(law.id));
   const income = Math.max(4, Math.round(5 + game.economy * .12 + game.prosperity * .045 + activeLaws.reduce((sum, law) => sum + (law.income ?? 0), 0)));
-  const upkeep = Math.round(game.defense * .035 + activeLaws.reduce((sum, law) => sum + law.upkeep, 0));
+  game.inventory ??= emptyInventory();
+  const equipmentUpkeep = procurementItems.reduce((sum, item) => sum + game.inventory[item.id] * item.upkeep, 0);
+  const embassyUpkeep = game.relations.filter((relation) => relation.embassy).length * 0.5;
+  const upkeep = Math.round((game.defense * .035 + activeLaws.reduce((sum, law) => sum + law.upkeep, 0) + equipmentUpkeep + embassyUpkeep) * 100) / 100;
   const net = income - upkeep;
   game.treasury = Math.max(0, game.treasury + net);
   game.debt = Math.max(0, game.debt + (net < 0 ? Math.abs(net) : 0) - Math.min(game.debt, Math.max(0, net - 8)));
@@ -532,8 +672,13 @@ export function loadCampaign(serialized, knownCountries) {
         || !saved.relations.some((relation) => relation.id === saved.conflict.opponentId)
         || !Number.isInteger(saved.conflict.exchanges) || saved.conflict.exchanges < 0))) return null;
   saved.country = country;
+  saved.inventory = { ...emptyInventory(), ...(saved.inventory ?? {}) };
+  if (!procurementItems.every((item) => Number.isInteger(saved.inventory[item.id]) && saved.inventory[item.id] >= 0)) return null;
+  saved.peacePactUntil = Number.isInteger(saved.peacePactUntil) ? Math.max(0, saved.peacePactUntil) : 0;
   saved.relations = saved.relations.filter((relation) => relation.id !== country.id);
   if (new Set(saved.relations.map((relation) => relation.id)).size !== saved.relations.length) return null;
+  saved.relations.forEach((relation) => { relation.embassy = Boolean(relation.embassy); });
+  if (!saved.conflict) saved.conflict = null;
   saved.laws = [...new Set(saved.laws.filter((id) => laws.some((law) => law.id === id)))];
   saved.actions = {
     government: Boolean(saved.actions?.government),

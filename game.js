@@ -10,6 +10,8 @@ import {
   laws,
   loadCampaign,
   makeInvestment,
+  procureEquipment,
+  procurementItems,
   proposeAgreement,
   relationStatus,
   saveCampaign,
@@ -106,6 +108,10 @@ const elements = {
   diplomacyLog: document.querySelector("#diplomacy-log"),
   conflictBriefing: document.querySelector("#conflict-briefing"),
   securityActions: document.querySelector("#security-actions"),
+  procurementForm: document.querySelector("#procurement-form"),
+  procurementCost: document.querySelector("#procurement-cost"),
+  procurementSubmit: document.querySelector("#procurement-submit"),
+  inventorySummary: document.querySelector("#inventory-summary"),
   armedForcesSummary: document.querySelector("#armed-forces-summary"),
   armedForcesSource: document.querySelector("#armed-forces-source"),
   securityLog: document.querySelector("#security-log"),
@@ -657,7 +663,7 @@ function renderDiplomacy() {
     const name = document.createElement("strong");
     name.textContent = relation.name;
     const status = document.createElement("span");
-    status.textContent = `${relationStatus(relation)} · Zustimmung ${relation.score}% · Spannung ${relation.tension}%`;
+    status.textContent = `${relationStatus(relation)} · Zustimmung ${relation.score}% · Spannung ${relation.tension}%${relation.embassy ? " · Botschaft vor Ort" : ""}`;
     description.append(name, status);
     const meter = document.createElement("div");
     meter.className = "relationship-meter";
@@ -684,6 +690,8 @@ function renderDiplomacy() {
     const diplomacyActions = [
       makeActionButton("Humanitäres Hilfspaket · 8 Mrd. €", { diplomacy: "aid" }, game.actions.diplomacy || game.treasury < 8),
       makeActionButton("Sanktionen verhängen · 3 Mrd. €", { diplomacy: "sanctions" }, game.actions.diplomacy || game.treasury < 3, "action-button action-button-warning"),
+      makeActionButton(relation.embassy ? "Botschaft bereits eröffnet" : "Botschaft eröffnen · 4 Mrd. €", { diplomacy: "embassy" }, game.actions.diplomacy || relation.embassy || game.treasury < 4),
+      makeActionButton("Europäische Friedenskonferenz · 8 Mrd. €", { diplomacy: "peaceConference" }, game.actions.diplomacy || game.treasury < 8, "action-button action-button-muted"),
     ];
     elements.diplomacyActions.replaceChildren(...diplomacyActions);
   } else {
@@ -733,10 +741,14 @@ function renderSecurity() {
   if (conflict) {
     const opponent = getRelation(game, conflict.opponentId);
     title.textContent = `Aktiver Konflikt · ${opponent?.name ?? "Unbekanntes Land"}`;
-    detail.textContent = `Auslöser: ${conflict.reason} Dauer: ${conflict.exchanges} automatische Konfliktrunden. Die Folgen für Haushalt und Zustimmung werden abstrakt berechnet.`;
+    detail.textContent = `Auslöser: ${conflict.reason} Dauer: ${conflict.exchanges} Konfliktrunden. Folgen für Haushalt und Zustimmung werden abstrakt berechnet.`;
   } else {
     title.textContent = "Kein bewaffneter Konflikt";
-    detail.textContent = "Bereitschaft stärken, Verträge schließen oder im äußersten Fall ein parlamentarisches Mandat beantragen.";
+    detail.textContent = game.round <= (game.peacePactUntil ?? 0)
+      ? `Europäische Konfliktsperre: noch ${game.peacePactUntil - game.round + 1} Runde${game.peacePactUntil - game.round === 0 ? "" : "n"}.`
+      : game.laws.includes("peace")
+        ? "Das Friedensgesetz untersagt, selbst einen Konflikt zu beginnen. Zivilschutz und Sicherheit bleiben möglich."
+        : "Bereitschaft stärken, Verträge schließen oder ein parlamentarisches Mandat beantragen.";
   }
   briefing.append(title, detail);
   elements.conflictBriefing.replaceChildren(briefing);
@@ -748,15 +760,42 @@ function renderSecurity() {
     elements.securityActions.append(
       makeActionButton("Waffenruhe beantragen", { military: "ceasefire" }, game.actions.defense),
       makeActionButton("Einsatz beenden & zurückziehen", { military: "retreat" }, game.actions.defense, "action-button action-button-muted"),
+      makeActionButton("Neutral bleiben · Nichteinmischung", { military: "neutrality" }, game.actions.defense, "action-button action-button-muted"),
     );
     if (!game.actions.diplomacy) {
       elements.securityActions.append(makeActionButton("Friedensgespräche aufnehmen", { diplomacy: "talks" }, false, "action-button"));
     }
   } else {
+    const peaceLaw = game.laws.includes("peace");
+    const peacePact = game.round <= (game.peacePactUntil ?? 0);
+    const interventionLabel = peaceLaw
+      ? "Durch Friedensgesetz untersagt"
+      : peacePact
+        ? "Europäische Konfliktsperre aktiv"
+        : "Parlamentarisches Militärmandat beantragen · 15 Mrd. €";
     elements.securityActions.append(
-      makeActionButton("Parlamentarisches Militärmandat beantragen · 15 Mrd. €", { military: "intervention" }, game.actions.defense || game.treasury < 15 || game.legitimacy < 45, "action-button action-button-warning"),
+      makeActionButton(interventionLabel, { military: "intervention" }, game.actions.defense || game.treasury < 15 || game.legitimacy < 45 || peaceLaw || peacePact, "action-button action-button-warning"),
     );
   }
+  const inventory = game.inventory;
+  elements.inventorySummary.replaceChildren(...procurementItems.map((item) => {
+    const card = document.createElement("div");
+    card.className = "inventory-card";
+    const label = document.createElement("span");
+    label.textContent = item.label;
+    const quantity = document.createElement("strong");
+    quantity.textContent = inventory[item.id].toLocaleString("de-DE");
+    const unit = document.createElement("small");
+    unit.textContent = item.unit;
+    card.append(label, quantity, unit);
+    return card;
+  }));
+  const formData = new FormData(elements.procurementForm);
+  const requested = Object.fromEntries(procurementItems.map((item) => [item.id, Number(formData.get(item.id)) || 0]));
+  const procurementTotal = procurementItems.reduce((sum, item) => sum + requested[item.id] * item.cost, 0);
+  elements.procurementCost.textContent = `${procurementTotal.toLocaleString("de-DE", { maximumFractionDigits: 2 })} Mrd. €`;
+  elements.procurementSubmit.disabled = game.actions.defense || Boolean(game.conflict) || procurementTotal <= 0 || procurementTotal > game.treasury;
+  elements.procurementSubmit.textContent = game.conflict ? "Während eines Konflikts gesperrt" : game.actions.defense ? "Sicherheit bereits genutzt" : procurementTotal > game.treasury ? "Zu teuer" : "Beschaffung prüfen";
   const profileAircraft = aircraftByCountry[game.country.id];
   elements.armedForcesSummary.textContent = profileAircraft?.aircraft.length
     ? `${profileAircraft.aircraft.join(" · ")}${profileAircraft.onOrder?.length ? ` · Bestellt: ${profileAircraft.onOrder.join(", ")}` : ""}. ${profileAircraft.note} Spielstärke ${game.defense}/100 ist ein abstrahierter Wert und keine tatsächliche Truppen- oder Einsatzstärke.`
@@ -994,6 +1033,18 @@ elements.gameSection.addEventListener("click", (event) => {
   if (button.dataset.offer) {
     notifyAction(answerOffer(game, button.dataset.offer === "accept"));
   }
+});
+elements.procurementForm.addEventListener("submit", (event) => {
+  event.preventDefault();
+  const data = new FormData(elements.procurementForm);
+  const quantities = Object.fromEntries(procurementItems.map((item) => [item.id, Number(data.get(item.id))]));
+  const result = procureEquipment(game, quantities);
+  if (result.ok) elements.procurementForm.reset();
+  notifyAction(result);
+  if (!result.ok) renderSecurity();
+});
+elements.procurementForm.addEventListener("input", () => {
+  if (game) renderSecurity();
 });
 elements.nationSelect.addEventListener("change", () => {
   if (!game) return;
